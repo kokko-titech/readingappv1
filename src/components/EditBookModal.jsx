@@ -11,6 +11,7 @@ export default function EditBookModal({ book, onSave, onClose }) {
     quote: book.quote || '',
     isFavorite: book.isFavorite || false,
     isUnread: book.isUnread || false,
+    coverUrl: book.coverUrl || '',
   });
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -34,6 +35,13 @@ export default function EditBookModal({ book, onSave, onClose }) {
           <button onClick={onClose} className="p-1 rounded-full text-gray-400"><X size={20} /></button>
         </div>
         <form onSubmit={handleSubmit} className="px-5 pb-6 space-y-4">
+          {/* Cover preview */}
+          {form.coverUrl && (
+            <div className="flex justify-center">
+              <img src={form.coverUrl} alt="cover" className="h-28 rounded-lg shadow-md object-cover" />
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">タイトル *</label>
             <input className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" value={form.title} onChange={(e) => set('title', e.target.value)} required />
@@ -41,6 +49,10 @@ export default function EditBookModal({ book, onSave, onClose }) {
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">著者</label>
             <input className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" value={form.author} onChange={(e) => set('author', e.target.value)} />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1">カバー画像URL</label>
+            <input className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="https://..." value={form.coverUrl} onChange={(e) => set('coverUrl', e.target.value)} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">ジャンル</label>

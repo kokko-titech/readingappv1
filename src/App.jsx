@@ -5,17 +5,17 @@ import UndergroundScene from './components/UndergroundScene';
 import AddBookModal from './components/AddBookModal';
 import TimerModal from './components/TimerModal';
 import UnreadCorner from './components/UnreadCorner';
-import ForestMap from './components/ForestMap';
+import CalendarModal from './components/CalendarModal';
 import Bookshelf from './components/Bookshelf';
 import StatsModal from './components/StatsModal';
 import { GENRES } from './data/genres';
 
 const NAV_ITEMS = [
-  { id: 'forest', emoji: '🌳', label: '森' },
-  { id: 'timer',  emoji: '⏱', label: 'タイマー' },
-  { id: 'unread', emoji: '📦', label: '積読' },
-  { id: 'map',    emoji: '🗺', label: 'みんな' },
-  { id: 'shelf',  emoji: '🪵', label: '本棚' },
+  { id: 'forest',   emoji: '🌳', label: '森' },
+  { id: 'timer',    emoji: '⏱', label: 'タイマー' },
+  { id: 'unread',   emoji: '📦', label: '積読' },
+  { id: 'calendar', emoji: '📅', label: 'カレンダー' },
+  { id: 'shelf',    emoji: '🪵', label: '本棚' },
 ];
 
 function StatsBar({ readBooks, onClick }) {
@@ -82,6 +82,7 @@ export default function App() {
       className="flex flex-col h-dvh max-w-md mx-auto relative overflow-hidden"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif' }}
     >
+      {/* Header */}
       <div
         className="flex items-center justify-between px-4"
         style={{
@@ -105,9 +106,11 @@ export default function App() {
         </button>
       </div>
 
+      {/* Stats — tap to open stats modal */}
       <StatsBar readBooks={readBooks} onClick={() => setModal('stats')} />
       <GenreLegend readBooks={readBooks} />
 
+      {/* Main scroll area */}
       <div className="flex-1 overflow-y-auto flex flex-col">
         <div className="flex flex-col" style={{ minHeight: 260 }}>
           <ForestScene readBooks={readBooks} onTreeTap={() => setModal('shelf')} />
@@ -127,6 +130,7 @@ export default function App() {
         />
       </div>
 
+      {/* Bottom navigation */}
       <div
         className="flex items-center justify-around py-2"
         style={{
@@ -154,6 +158,7 @@ export default function App() {
         })}
       </div>
 
+      {/* Unread badge */}
       {unreadBooks.length > 0 && (
         <div
           className="absolute right-16 bottom-14 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center"
@@ -163,10 +168,11 @@ export default function App() {
         </div>
       )}
 
+      {/* Modals */}
       {modal === 'add' && <AddBookModal onAdd={addBook} onClose={() => setModal(null)} />}
       {modal === 'timer' && <TimerModal onClose={() => setModal(null)} />}
       {modal === 'unread' && <UnreadCorner unreadBooks={unreadBooks} onMarkRead={markRead} onClose={() => setModal(null)} />}
-      {modal === 'map' && <ForestMap onClose={() => setModal(null)} myCount={readBooks.length} />}
+      {modal === 'calendar' && <CalendarModal readBooks={readBooks} onClose={() => setModal(null)} />}
       {modal === 'shelf' && (
         <Bookshelf
           readBooks={readBooks}

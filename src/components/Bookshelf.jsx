@@ -8,17 +8,25 @@ function BookSpine({ book, onTap }) {
   return (
     <button
       onClick={() => onTap(book)}
-      className="flex flex-col items-center justify-between rounded-md px-1 py-2 text-center shadow-md active:scale-95 transition-transform"
+      className="flex flex-col items-center justify-between rounded-md px-1 py-2 text-center shadow-md active:scale-95 transition-transform overflow-hidden"
       style={{
         width: 36, height: 120,
-        background: `linear-gradient(180deg, ${genreData.color}cc, ${genreData.darkColor})`,
+        background: book.coverUrl
+          ? 'transparent'
+          : `linear-gradient(180deg, ${genreData.color}cc, ${genreData.darkColor})`,
         borderLeft: `3px solid ${genreData.darkColor}`,
-        writingMode: 'vertical-rl',
+        writingMode: book.coverUrl ? 'horizontal-tb' : 'vertical-rl',
         textOrientation: 'mixed',
+        position: 'relative',
       }}
     >
-      <span className="text-white text-xs font-bold leading-tight overflow-hidden" style={{ maxHeight: 80, WebkitLineClamp: 3 }}>{book.title}</span>
-      {book.isFavorite && <span style={{ writingMode: 'horizontal-tb' }}>⭐</span>}
+      {book.coverUrl
+        ? <img src={book.coverUrl} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 4 }} />
+        : <>
+          <span className="text-white text-xs font-bold leading-tight overflow-hidden" style={{ maxHeight: 80, WebkitLineClamp: 3 }}>{book.title}</span>
+          {book.isFavorite && <span style={{ writingMode: 'horizontal-tb' }}>⭐</span>}
+        </>
+      }
     </button>
   );
 }
@@ -29,7 +37,10 @@ function BookDetail({ book, onClose, onEdit, onDelete }) {
     <div className="fixed inset-0 flex items-end" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 60 }} onClick={onClose}>
       <div className="w-full rounded-t-3xl p-5 space-y-3" style={{ background: 'white', maxHeight: '75vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3">
-          <div className="w-12 h-16 rounded-lg flex-shrink-0 shadow" style={{ background: `linear-gradient(180deg, ${genreData.color}, ${genreData.darkColor})` }} />
+          {book.coverUrl
+            ? <img src={book.coverUrl} alt={book.title} className="w-14 h-20 object-cover rounded-lg flex-shrink-0 shadow" />
+            : <div className="w-14 h-20 rounded-lg flex-shrink-0 shadow" style={{ background: `linear-gradient(180deg, ${genreData.color}, ${genreData.darkColor})` }} />
+          }
           <div className="flex-1">
             <h3 className="font-bold text-gray-800">{book.title}</h3>
             <p className="text-xs text-gray-500 mt-0.5">{book.author || '著者不明'}</p>
