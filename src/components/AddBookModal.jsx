@@ -11,7 +11,15 @@ const INITIAL = {
   isFavorite: false,
   isUnread: false,
   coverUrl: '',
+  publishedDate: '',
 };
+
+function formatPubDate(d) {
+  if (!d) return '';
+  const y = d.slice(0, 4);
+  const m = d.slice(5, 7);
+  return m ? `${y}年${parseInt(m)}月` : `${y}年`;
+}
 
 async function searchBooks(query) {
   if (!query || query.length < 2) return [];
@@ -25,6 +33,7 @@ async function searchBooks(query) {
       title: item.volumeInfo.title || '',
       author: (item.volumeInfo.authors || []).join(', '),
       coverUrl: item.volumeInfo.imageLinks?.thumbnail?.replace('http:', 'https:') || '',
+      publishedDate: formatPubDate(item.volumeInfo.publishedDate || ''),
     }));
   } catch {
     return [];
@@ -54,7 +63,7 @@ export default function AddBookModal({ onAdd, onClose }) {
   };
 
   const selectSuggestion = (s) => {
-    setForm((f) => ({ ...f, title: s.title, author: s.author, coverUrl: s.coverUrl }));
+    setForm((f) => ({ ...f, title: s.title, author: s.author, coverUrl: s.coverUrl, publishedDate: s.publishedDate }));
     setSuggestions([]);
     setShowSuggestions(false);
   };
@@ -80,14 +89,12 @@ export default function AddBookModal({ onAdd, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pb-6 space-y-4">
-          {/* Cover preview */}
           {form.coverUrl && (
             <div className="flex justify-center">
               <img src={form.coverUrl} alt="cover" className="h-28 rounded-lg shadow-md object-cover" />
             </div>
           )}
 
-          {/* Title with autocomplete */}
           <div className="relative">
             <label className="block text-xs font-semibold text-gray-600 mb-1">タイトル *</label>
             <input
@@ -117,6 +124,7 @@ export default function AddBookModal({ onAdd, onClose }) {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-gray-800 leading-tight" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{s.title}</p>
                       {s.author && <p className="text-xs text-gray-400 mt-0.5 truncate">{s.author}</p>}
+                      {s.publishedDate && <p className="text-xs text-gray-300 truncate">{s.publishedDate}</p>}
                     </div>
                   </button>
                 ))}
@@ -124,7 +132,6 @@ export default function AddBookModal({ onAdd, onClose }) {
             )}
           </div>
 
-          {/* Author */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">著者</label>
             <input
@@ -135,7 +142,10 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
-          {/* Cover URL */}
+          {form.publishedDate && (
+            <p className="text-xs text-gray-400 -mt-2">📅 発売日: {form.publishedDate}</p>
+          )}
+
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
               カバー画像 <span className="font-normal text-gray-400">（自動取得 or URLを貼り付け）</span>
@@ -148,7 +158,6 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
-          {/* Genre */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">ジャンル</label>
             <div className="flex flex-wrap gap-2">
@@ -161,7 +170,6 @@ export default function AddBookModal({ onAdd, onClose }) {
             </div>
           </div>
 
-          {/* Review */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">感想</label>
             <textarea
@@ -173,7 +181,6 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
-          {/* Quote */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">心に残った言葉</label>
             <textarea
@@ -185,7 +192,6 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
-          {/* Options */}
           <div className="flex gap-3">
             <button type="button" onClick={() => set('isFavorite', !form.isFavorite)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border-2 transition-all"
