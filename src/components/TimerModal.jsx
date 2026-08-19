@@ -1,15 +1,29 @@
+import { useEffect } from 'react';
 import { useTimer } from '../hooks/useTimer';
 import { X } from 'lucide-react';
 
-const MINUTES_OPTIONS = [5, 10, 15, 20, 30];
+const SESSIONS_KEY = 'chishiki-reading-dates';
+
+function saveReadingSession() {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const saved = JSON.parse(localStorage.getItem(SESSIONS_KEY) || '[]');
+    if (!saved.includes(today)) {
+      localStorage.setItem(SESSIONS_KEY, JSON.stringify([today, ...saved]));
+    }
+  } catch {}
+}
 
 export default function TimerModal({ onClose }) {
-  const [selectedMin, setSelectedMin] = [10, () => {}];
   const { minutes, seconds, progress, isRunning, isComplete, start, pause, reset } = useTimer(10);
 
   const radius = 70;
   const circ = 2 * Math.PI * radius;
   const dashOffset = circ * (1 - progress);
+
+  useEffect(() => {
+    if (isComplete) saveReadingSession();
+  }, [isComplete]);
 
   return (
     <div
@@ -28,7 +42,7 @@ export default function TimerModal({ onClose }) {
 
         <div className="px-5 pb-2 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800">⏱ まるまるタイマー</h2>
-          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="p-1 text-gray-400">
             <X size={20} />
           </button>
         </div>
@@ -69,7 +83,7 @@ export default function TimerModal({ onClose }) {
           {isComplete && (
             <div className="text-center">
               <p className="text-green-600 font-bold text-base">素晴らしい！ 🌿</p>
-              <p className="text-gray-500 text-sm">今日も知識の根が育ちました</p>
+              <p className="text-gray-500 text-sm">今日の読書がカレンダーに記録されました</p>
             </div>
           )}
 
