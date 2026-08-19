@@ -44,6 +44,7 @@ function BookDetail({ book, onClose, onEdit, onDelete }) {
           <div className="flex-1">
             <h3 className="font-bold text-gray-800">{book.title}</h3>
             <p className="text-xs text-gray-500 mt-0.5">{book.author || '著者不明'}</p>
+            {book.publishedDate && <p className="text-xs text-gray-400 mt-0.5">📅 {book.publishedDate}</p>}
             <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: genreData.color + '33', color: genreData.darkColor }}>
               {genreData.emoji} {genreData.label}
             </span>
