@@ -89,12 +89,14 @@ export default function AddBookModal({ onAdd, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pb-6 space-y-4">
+          {/* Cover preview */}
           {form.coverUrl && (
             <div className="flex justify-center">
               <img src={form.coverUrl} alt="cover" className="h-28 rounded-lg shadow-md object-cover" />
             </div>
           )}
 
+          {/* Title with autocomplete */}
           <div className="relative">
             <label className="block text-xs font-semibold text-gray-600 mb-1">タイトル *</label>
             <input
@@ -115,7 +117,7 @@ export default function AddBookModal({ onAdd, onClose }) {
                     type="button"
                     className="flex items-center gap-3 w-full px-3 py-2.5 text-left active:bg-green-50"
                     style={{ borderBottom: i < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none' }}
-                    onMouseDown={() => selectSuggestion(s)}
+                    onPointerDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
                   >
                     {s.coverUrl
                       ? <img src={s.coverUrl} alt="" className="w-8 h-11 object-cover rounded flex-shrink-0" />
@@ -132,6 +134,7 @@ export default function AddBookModal({ onAdd, onClose }) {
             )}
           </div>
 
+          {/* Author */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">著者</label>
             <input
@@ -142,10 +145,12 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
+          {/* Published date (auto-filled) */}
           {form.publishedDate && (
             <p className="text-xs text-gray-400 -mt-2">📅 発売日: {form.publishedDate}</p>
           )}
 
+          {/* Cover URL */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">
               カバー画像 <span className="font-normal text-gray-400">（自動取得 or URLを貼り付け）</span>
@@ -158,6 +163,7 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
+          {/* Genre */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-2">ジャンル</label>
             <div className="flex flex-wrap gap-2">
@@ -170,6 +176,7 @@ export default function AddBookModal({ onAdd, onClose }) {
             </div>
           </div>
 
+          {/* Review */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">感想</label>
             <textarea
@@ -181,6 +188,7 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
+          {/* Quote */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">心に残った言葉</label>
             <textarea
@@ -192,6 +200,7 @@ export default function AddBookModal({ onAdd, onClose }) {
             />
           </div>
 
+          {/* Options */}
           <div className="flex gap-3">
             <button type="button" onClick={() => set('isFavorite', !form.isFavorite)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm border-2 transition-all"
