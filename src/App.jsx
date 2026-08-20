@@ -94,8 +94,8 @@ export default function App() {
         }}
       >
         <div>
-          <h1 className="text-lg font-bold text-gray-800">🌲 知識の森</h1>
-          <p className="text-xs text-gray-400">Chishiki Forest</p>
+          <h1 className="text-2xl font-black text-gray-800">🌲 知識の森</h1>
+          <p className="text-xs text-gray-500 font-medium">Chishiki Forest</p>
         </div>
         <button
           onClick={() => setModal('add')}
@@ -112,7 +112,7 @@ export default function App() {
 
       {/* Main scroll area */}
       <div className="flex-1 overflow-y-auto flex flex-col">
-        <div className="flex flex-col" style={{ minHeight: 260 }}>
+        <div className="flex flex-col" style={{ minHeight: 300 }}>
           <ForestScene readBooks={readBooks} onTreeTap={() => setModal('shelf')} />
         </div>
 

@@ -117,7 +117,7 @@ export default function AddBookModal({ onAdd, onClose }) {
                     type="button"
                     className="flex items-center gap-3 w-full px-3 py-2.5 text-left active:bg-green-50"
                     style={{ borderBottom: i < suggestions.length - 1 ? '1px solid #f3f4f6' : 'none' }}
-                    onMouseDown={() => selectSuggestion(s)}
+                    onPointerDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
                   >
                     {s.coverUrl
                       ? <img src={s.coverUrl} alt="" className="w-8 h-11 object-cover rounded flex-shrink-0" />
