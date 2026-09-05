@@ -6,6 +6,14 @@ function seededRand(seed) {
   return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
 }
 
+function bezierPoint(t, p0, p1, p2) {
+  const u = 1 - t;
+  return {
+    x: u * u * p0.x + 2 * u * t * p1.x + t * t * p2.x,
+    y: u * u * p0.y + 2 * u * t * p1.y + t * t * p2.y,
+  };
+}
+
 function Cloud({ x, y, s = 30 }) {
   return (
     <g>
@@ -15,7 +23,6 @@ function Cloud({ x, y, s = 30 }) {
       <ellipse cx={x + s * 0.52} cy={y + s * 0.12} rx={s * 0.52} ry={s * 0.38} fill="white" />
       <ellipse cx={x - s * 0.18} cy={y - s * 0.24} rx={s * 0.36} ry={s * 0.3} fill="white" />
       <ellipse cx={x + s * 0.18} cy={y - s * 0.24} rx={s * 0.36} ry={s * 0.3} fill="white" />
-      <ellipse cx={x - s * 0.32} cy={y - s * 0.1} rx={s * 0.2} ry={s * 0.13} fill="rgba(255,255,255,0.75)" />
     </g>
   );
 }
@@ -25,12 +32,9 @@ function BackTree({ x, y, h }) {
   const top = y - h;
   const cr = h * 0.38;
   return (
-    <g opacity="0.62">
-      <ellipse cx={x + 4} cy={y + 4} rx={tw * 2.2} ry={5} fill="rgba(0,0,0,0.14)" />
+    <g opacity="0.55">
       <rect x={x - tw / 2} y={top} width={tw} height={h} rx={tw / 2} fill="#78350f" />
-      <ellipse cx={x + 3} cy={top + 8} rx={cr * 0.88} ry={cr * 0.78} fill="#14532d" />
       <ellipse cx={x} cy={top} rx={cr} ry={cr * 0.88} fill="#166534" />
-      <ellipse cx={x - cr * 0.28} cy={top - cr * 0.22} rx={cr * 0.22} ry={cr * 0.15} fill="rgba(255,255,255,0.22)" />
     </g>
   );
 }
@@ -49,153 +53,142 @@ function Flower({ x, y, color }) {
   );
 }
 
-const LEAF_COLORS = ['#4ade80', '#22c55e', '#16a34a', '#86efac', '#bbf7d0', '#34d399', '#6ee7b7'];
+// 7 branch slots — one per genre (left/right alternating, lower to higher)
+// h = fraction up the trunk (0=ground, 1=top), angle = degrees from horizontal (>90 = left, <90 = right)
+const GENRE_KEYS = Object.keys(GENRES);
 
-function MainTree({ stage, readBooks, cx, groundY, onSignTap, onShelfTap }) {
-  const sizes = [
-    { trunkH: 0, trunkW: 0, cr: 0 },
-    { trunkH: 68, trunkW: 17, cr: 54 },
-    { trunkH: 108, trunkW: 23, cr: 76 },
-    { trunkH: 148, trunkW: 30, cr: 98 },
-    { trunkH: 188, trunkW: 36, cr: 122 },
-  ];
-  const { trunkH, trunkW, cr } = sizes[stage];
-  const trunkTop = groundY - trunkH;
-  const canopyY = trunkTop + 10;
+const BRANCH_SLOTS = [
+  { h: 0.38, angle: 148, len: 80, thick: 5.5 },   // other      — lower-left
+  { h: 0.44, angle: 35,  len: 76, thick: 5.0 },   // selfhelp   — lower-right
+  { h: 0.56, angle: 136, len: 86, thick: 4.4 },   // philosophy — mid-left
+  { h: 0.62, angle: 44,  len: 82, thick: 4.0 },   // history    — mid-right
+  { h: 0.72, angle: 128, len: 90, thick: 3.4 },   // science    — upper-mid-left
+  { h: 0.78, angle: 52,  len: 86, thick: 3.0 },   // business   — upper-mid-right
+  { h: 0.88, angle: 118, len: 78, thick: 2.4 },   // literature — top-left
+];
 
-  const favoriteCount = useMemo(() => readBooks.filter(b => b.isFavorite).length, [readBooks]);
-  const reviewCount = useMemo(() => readBooks.filter(b => b.review?.length > 0).length, [readBooks]);
+function GenreBranch({ slot, books, cx, trunkTop, trunkH, groundY, genreKey }) {
+  const genre = GENRES[genreKey];
+  const leafColor = genre.color;
+  const darkLeafColor = genre.darkColor;
+
+  // Branch root on trunk
+  const rootY = trunkTop + trunkH * (1 - slot.h);
+  const rootX = cx;
+
+  // Branch tip using angle
+  const rad = (slot.angle * Math.PI) / 180;
+  const tipX = rootX + Math.cos(rad) * slot.len;
+  const tipY = rootY - Math.sin(rad) * slot.len * 0.72;
+
+  // Control point for quadratic bezier (curves upward)
+  const ctrlX = rootX + Math.cos(rad) * slot.len * 0.42;
+  const ctrlY = rootY - Math.sin(rad) * slot.len * 0.18 - 18;
+
+  // Sub-branches at t=0.55 and t=0.78 along main branch
+  const sub1t = 0.55;
+  const sub2t = 0.78;
+  const p1 = bezierPoint(sub1t, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
+  const p2 = bezierPoint(sub2t, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
+
+  // Sub-branch directions (fork left and right)
+  const isLeft = slot.angle > 90;
+  const fork1Angle = rad + (isLeft ? 0.4 : -0.4);
+  const fork2Angle = rad + (isLeft ? -0.35 : 0.35);
+  const subLen1 = slot.len * 0.44;
+  const subLen2 = slot.len * 0.38;
+
+  const s1tip = { x: p1.x + Math.cos(fork1Angle) * subLen1, y: p1.y - Math.sin(fork1Angle) * subLen1 * 0.7 };
+  const s2tip = { x: p2.x + Math.cos(fork2Angle) * subLen2, y: p2.y - Math.sin(fork2Angle) * subLen2 * 0.7 };
+
+  // Leaves: up to 6 per book (max 30 per branch), seeded positions along branches
+  const bookCount = books.length;
+  const leafCount = Math.min(bookCount * 5, 30);
 
   const leaves = useMemo(() => {
-    if (stage === 0 || cr === 0) return [];
-    return Array.from({ length: Math.min(readBooks.length, 42) }, (_, i) => {
-      const r = seededRand(i * 1337 + 7);
-      const angle = r() * Math.PI * 2;
-      const dist = cr * (0.1 + r() * 0.85);
-      return {
-        x: cx + Math.cos(angle) * dist,
-        y: canopyY + Math.sin(angle) * dist * 0.78,
+    if (leafCount === 0) return [];
+    const r = seededRand(GENRE_KEYS.indexOf(genreKey) * 9999 + leafCount * 37);
+    const result = [];
+    for (let i = 0; i < leafCount; i++) {
+      const branch = r() < 0.5 ? 'main' : r() < 0.5 ? 'sub1' : 'sub2';
+      const t = 0.35 + r() * 0.62;
+      let bp;
+      if (branch === 'main') {
+        bp = bezierPoint(t, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
+      } else if (branch === 'sub1') {
+        bp = { x: p1.x + Math.cos(fork1Angle) * subLen1 * t, y: p1.y - Math.sin(fork1Angle) * subLen1 * t * 0.7 };
+      } else {
+        bp = { x: p2.x + Math.cos(fork2Angle) * subLen2 * t, y: p2.y - Math.sin(fork2Angle) * subLen2 * t * 0.7 };
+      }
+      const spread = 5 + r() * 9;
+      result.push({
+        x: bp.x + (r() - 0.5) * spread,
+        y: bp.y + (r() - 0.5) * spread * 0.6 - 4,
         rot: r() * 360,
-        rx: 2.8 + r() * 4,
-        ry: 5 + r() * 5.5,
-        color: LEAF_COLORS[Math.floor(r() * LEAF_COLORS.length)],
-      };
-    });
-  }, [readBooks.length, stage, cr, cx, canopyY]);
+        rx: 3 + r() * 3.5,
+        ry: 5 + r() * 5,
+        dark: r() < 0.35,
+      });
+    }
+    return result;
+  }, [leafCount, genreKey, rootX, rootY, ctrlX, ctrlY, tipX, tipY, p1.x, p1.y, p2.x, p2.y, fork1Angle, fork2Angle, subLen1, subLen2]);
 
-  if (stage === 0) {
-    return (
-      <g>
-        <line x1={cx} y1={groundY} x2={cx} y2={groundY - 40} stroke="#16a34a" strokeWidth="5" strokeLinecap="round" />
-        <ellipse cx={cx - 13} cy={groundY - 38} rx={13} ry={9}
-          fill="#4ade80" stroke="#16a34a" strokeWidth="1.5"
-          transform={`rotate(-28,${cx - 13},${groundY - 38})`} />
-        <ellipse cx={cx + 13} cy={groundY - 38} rx={13} ry={9}
-          fill="#4ade80" stroke="#16a34a" strokeWidth="1.5"
-          transform={`rotate(28,${cx + 13},${groundY - 38})`} />
-        <ellipse cx={cx} cy={groundY - 52} rx={11} ry={13} fill="#22c55e" stroke="#16a34a" strokeWidth="1.5" />
-      </g>
-    );
-  }
-
-  const signY = trunkTop + trunkH * 0.4;
-  const shelfY = groundY - 4;
+  const branchColor = '#6b3a1f';
+  const branchStroke = '#3d1f0a';
 
   return (
     <g>
-      {/* Trunk shadow */}
-      <ellipse cx={cx + 10} cy={groundY + 5} rx={trunkW * 2.4} ry={9} fill="rgba(0,0,0,0.2)" />
+      {/* Main branch */}
+      <path
+        d={`M ${rootX} ${rootY} Q ${ctrlX} ${ctrlY} ${tipX} ${tipY}`}
+        fill="none" stroke={branchStroke} strokeWidth={slot.thick + 1} strokeLinecap="round"
+      />
+      <path
+        d={`M ${rootX} ${rootY} Q ${ctrlX} ${ctrlY} ${tipX} ${tipY}`}
+        fill="none" stroke={branchColor} strokeWidth={slot.thick} strokeLinecap="round"
+      />
 
-      {/* Trunk */}
-      <rect x={cx - trunkW / 2} y={trunkTop} width={trunkW} height={trunkH + 5} rx={trunkW / 2}
-        fill="url(#trunk-grad)" stroke="#451a03" strokeWidth="1.5" />
-      <rect x={cx - trunkW / 2 + 3} y={trunkTop + 14}
-        width={Math.max(3, trunkW * 0.22)} height={trunkH * 0.52} rx={2}
-        fill="rgba(255,255,255,0.26)" />
+      {/* Sub-branch 1 */}
+      <path
+        d={`M ${p1.x} ${p1.y} L ${s1tip.x} ${s1tip.y}`}
+        fill="none" stroke={branchStroke} strokeWidth={slot.thick * 0.48 + 0.6} strokeLinecap="round"
+      />
+      <path
+        d={`M ${p1.x} ${p1.y} L ${s1tip.x} ${s1tip.y}`}
+        fill="none" stroke={branchColor} strokeWidth={slot.thick * 0.45} strokeLinecap="round"
+      />
 
-      {/* Canopy shadow */}
-      <ellipse cx={cx + 12} cy={canopyY + 16} rx={cr * 0.9} ry={cr * 0.76} fill="#064e3b" opacity="0.52" />
+      {/* Sub-branch 2 */}
+      <path
+        d={`M ${p2.x} ${p2.y} L ${s2tip.x} ${s2tip.y}`}
+        fill="none" stroke={branchStroke} strokeWidth={slot.thick * 0.4 + 0.5} strokeLinecap="round"
+      />
+      <path
+        d={`M ${p2.x} ${p2.y} L ${s2tip.x} ${s2tip.y}`}
+        fill="none" stroke={branchColor} strokeWidth={slot.thick * 0.38} strokeLinecap="round"
+      />
 
-      {/* Side clusters */}
-      <ellipse cx={cx - cr * 0.6} cy={canopyY + cr * 0.2} rx={cr * 0.68} ry={cr * 0.6}
-        fill="#059669" stroke="#047857" strokeWidth="2" />
-      <ellipse cx={cx + cr * 0.62} cy={canopyY + cr * 0.24} rx={cr * 0.64} ry={cr * 0.56}
-        fill="#047857" stroke="#065f46" strokeWidth="2" />
-
-      {/* Main canopy */}
-      <ellipse cx={cx} cy={canopyY} rx={cr} ry={cr * 0.9}
-        fill="url(#canopy-grad)" stroke="#059669" strokeWidth="2.5" />
-
-      {/* Leaves — one per book */}
+      {/* Leaves */}
       {leaves.map((leaf, i) => (
-        <ellipse key={i} cx={leaf.x} cy={leaf.y} rx={leaf.rx} ry={leaf.ry}
-          fill={leaf.color} opacity={0.82}
-          transform={`rotate(${leaf.rot}, ${leaf.x}, ${leaf.y})`} />
+        <ellipse key={i}
+          cx={leaf.x} cy={leaf.y}
+          rx={leaf.rx} ry={leaf.ry}
+          fill={leaf.dark ? darkLeafColor : leafColor}
+          opacity={0.88}
+          transform={`rotate(${leaf.rot}, ${leaf.x}, ${leaf.y})`}
+        />
       ))}
 
-      {/* Canopy highlight */}
-      <ellipse cx={cx - cr * 0.3} cy={canopyY - cr * 0.36} rx={cr * 0.28} ry={cr * 0.2}
-        fill="rgba(255,255,255,0.34)" />
-
-      {/* Favorite flowers */}
-      {Array.from({ length: Math.min(favoriteCount, 10) }).map((_, fi) => {
-        const a = (fi / Math.max(favoriteCount, 1)) * Math.PI * 2 - 0.4;
-        const r = cr * (0.48 + (fi % 3) * 0.12);
-        return (
-          <g key={fi}>
-            <circle cx={cx + Math.cos(a) * r} cy={canopyY + Math.sin(a) * r * 0.72} r={7}
-              fill="#fda4af" stroke="#fb7185" strokeWidth="1.2" />
-            <circle cx={cx + Math.cos(a) * r} cy={canopyY + Math.sin(a) * r * 0.72} r={2.8}
-              fill="#fef3c7" />
-          </g>
-        );
-      })}
-
-      {/* Review fruits */}
-      {Array.from({ length: Math.min(reviewCount, 8) }).map((_, ri) => {
-        const a = (ri / Math.max(reviewCount, 1)) * Math.PI * 2 + 1.1;
-        const r = cr * (0.44 + (ri % 3) * 0.1);
-        return (
-          <g key={ri}>
-            <ellipse cx={cx + Math.cos(a) * r} cy={canopyY + cr * 0.1 + Math.sin(a) * r * 0.68}
-              rx={6} ry={8} fill="#f87171" stroke="#ef4444" strokeWidth="1.2" />
-            <ellipse cx={cx + Math.cos(a) * r - 1.5} cy={canopyY + cr * 0.1 + Math.sin(a) * r * 0.68 - 2}
-              rx={2.2} ry={2} fill="rgba(255,255,255,0.42)" />
-          </g>
-        );
-      })}
-
-      {/* Tree sign (tappable) */}
-      <g onClick={e => { e.stopPropagation(); onSignTap?.(); }} style={{ cursor: 'pointer' }}>
-        <line x1={cx - 10} y1={signY} x2={cx - 10} y2={signY + 12} stroke="#92400e" strokeWidth="1.5" />
-        <line x1={cx + 10} y1={signY} x2={cx + 10} y2={signY + 12} stroke="#92400e" strokeWidth="1.5" />
-        <rect x={cx - 30} y={signY + 12} width={60} height={24} rx={4} fill="#b45309" stroke="#78350f" strokeWidth="1.5" />
-        <rect x={cx - 28} y={signY + 14} width={56} height={20} rx={3} fill="#fef3c7" opacity={0.85} />
-        <text x={cx} y={signY + 27} textAnchor="middle" fontSize="8.5" fontWeight="bold" fill="#78350f">🌲 わたしの森</text>
-      </g>
-
-      {/* Bookshelf at base (tappable) */}
-      {readBooks.length > 0 && (
-        <g onClick={e => { e.stopPropagation(); onShelfTap?.(); }} style={{ cursor: 'pointer' }}>
-          {/* shelf plank */}
-          <rect x={cx - 48} y={shelfY} width={96} height={5} rx={2.5} fill="#b45309" stroke="#92400e" strokeWidth="1" />
-          {/* shelf supports */}
-          <rect x={cx - 46} y={shelfY + 5} width={4} height={14} rx={2} fill="#92400e" />
-          <rect x={cx + 42} y={shelfY + 5} width={4} height={14} rx={2} fill="#92400e" />
-          {/* book spines */}
-          {readBooks.slice(0, 15).map((b, i) => {
-            const bx = cx - 44 + i * 5.8;
-            const bh = 13 + (i % 3) * 5;
-            const col = GENRES[b.genre]?.color || '#6b7280';
-            return (
-              <g key={b.id}>
-                <rect x={bx} y={shelfY - bh} width={5} height={bh} rx={0.8} fill={col} opacity={0.9} />
-                <rect x={bx + 0.8} y={shelfY - bh + 1} width={1.5} height={bh - 2} rx={0.5} fill="rgba(255,255,255,0.3)" />
-              </g>
-            );
-          })}
-          <text x={cx} y={shelfY + 24} textAnchor="middle" fontSize="8" fontWeight="bold" fill="#92400e">📚 本棚を開く</text>
-        </g>
+      {/* Genre label at branch tip (small, only if has books) */}
+      {bookCount > 0 && (
+        <text
+          x={tipX + (isLeft ? -8 : 8)} y={tipY - 4}
+          textAnchor={isLeft ? 'end' : 'start'}
+          fontSize="7.5" fontWeight="bold" fill={darkLeafColor}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}
+        >
+          {genre.emoji} {bookCount}
+        </text>
       )}
     </g>
   );
@@ -203,17 +196,49 @@ function MainTree({ stage, readBooks, cx, groundY, onSignTap, onShelfTap }) {
 
 export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTap }) {
   const count = readBooks.length;
-  const stage = count >= 50 ? 4 : count >= 20 ? 3 : count >= 5 ? 2 : count >= 1 ? 1 : 0;
-  const stageLabel = ['🌱 芽生え', '🌿 小木', '🌳 中木', '🌲 大樹', '🌲 大樹'][stage];
+
+  // Group books by genre
+  const booksByGenre = useMemo(() => {
+    const groups = {};
+    GENRE_KEYS.forEach(k => { groups[k] = []; });
+    readBooks.forEach(b => {
+      if (groups[b.genre]) groups[b.genre].push(b);
+      else groups['other'].push(b);
+    });
+    return groups;
+  }, [readBooks]);
+
+  const cx = 180;
+  const groundY = 340;
+  const trunkH = 230;
+  const trunkTop = groundY - trunkH;
+  const baseW = 28;
+  const topW = 8;
+
+  // Tapered trunk as polygon
+  const trunkPath = [
+    `M ${cx - baseW} ${groundY}`,
+    `C ${cx - baseW} ${groundY - trunkH * 0.3} ${cx - topW * 1.1} ${trunkTop + 40} ${cx - topW} ${trunkTop}`,
+    `L ${cx + topW} ${trunkTop}`,
+    `C ${cx + topW * 1.1} ${trunkTop + 40} ${cx + baseW} ${groundY - trunkH * 0.3} ${cx + baseW} ${groundY}`,
+    'Z',
+  ].join(' ');
+
+  const signY = trunkTop + trunkH * 0.45;
+  const shelfY = groundY - 3;
+
+  // Assign genres to slots: BRANCH_SLOTS[i] ↔ GENRE_KEYS[i] (reversed so top slots = first genres)
+  // Map: slot index → genre key (literature at top, other at bottom)
+  const slotGenreMap = [6, 5, 4, 3, 2, 1, 0]; // slot i → GENRE_KEYS[slotGenreMap[i]]
 
   return (
     <div
       className="relative w-full flex-1 overflow-hidden"
-      style={{ minHeight: 290, cursor: 'pointer' }}
+      style={{ minHeight: 360, cursor: 'pointer' }}
       onClick={onTreeTap}
     >
       <svg
-        viewBox="0 0 360 290"
+        viewBox="0 0 360 380"
         className="absolute inset-0 w-full h-full"
         style={{ display: 'block' }}
         preserveAspectRatio="xMidYMid slice"
@@ -233,63 +258,107 @@ export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTa
             <stop offset="35%" stopColor="#b45309" />
             <stop offset="100%" stopColor="#451a03" />
           </linearGradient>
-          <radialGradient id="canopy-grad" cx="35%" cy="28%" r="68%">
-            <stop offset="0%" stopColor="#a7f3d0" />
-            <stop offset="38%" stopColor="#34d399" />
-            <stop offset="72%" stopColor="#059669" />
-            <stop offset="100%" stopColor="#064e3b" />
-          </radialGradient>
         </defs>
 
         {/* Sky */}
-        <rect x="0" y="0" width="360" height="225" fill="url(#sky-grad)" />
+        <rect x="0" y="0" width="360" height="345" fill="url(#sky-grad)" />
 
         {/* Sun */}
-        <circle cx="320" cy="50" r="36" fill="#fef08a" opacity="0.88" />
-        <circle cx="320" cy="50" r="29" fill="#fde047" />
-        <ellipse cx="310" cy="42" rx="10" ry="7" fill="rgba(255,255,255,0.45)" />
+        <circle cx="316" cy="52" r="34" fill="#fef08a" opacity="0.88" />
+        <circle cx="316" cy="52" r="27" fill="#fde047" />
+        <ellipse cx="306" cy="44" rx="9" ry="6" fill="rgba(255,255,255,0.45)" />
 
         {/* Clouds */}
-        <Cloud x={78} y={62} s={32} />
-        <Cloud x={255} y={40} s={24} />
-        <Cloud x={172} y={80} s={18} />
+        <Cloud x={72} y={66} s={30} />
+        <Cloud x={252} y={44} s={22} />
+        <Cloud x={168} y={88} s={17} />
 
         {/* Background hills */}
-        <ellipse cx="58" cy="228" rx="115" ry="40" fill="#86efac" opacity="0.52" />
-        <ellipse cx="312" cy="232" rx="98" ry="35" fill="#86efac" opacity="0.44" />
+        <ellipse cx="54" cy="344" rx="118" ry="38" fill="#86efac" opacity="0.5" />
+        <ellipse cx="310" cy="348" rx="100" ry="34" fill="#86efac" opacity="0.42" />
 
         {/* Background trees */}
-        <BackTree x={40} y={218} h={88} />
-        <BackTree x={320} y={218} h={74} />
-        <BackTree x={18} y={218} h={56} />
-        <BackTree x={342} y={218} h={52} />
+        <BackTree x={38} y={340} h={90} />
+        <BackTree x={322} y={340} h={76} />
+        <BackTree x={16} y={340} h={58} />
+        <BackTree x={344} y={340} h={54} />
 
         {/* Ground */}
-        <rect x="0" y="216" width="360" height="74" fill="url(#ground-grad)" />
-        <path d="M0,216 Q45,208 90,216 Q135,224 180,216 Q225,208 270,216 Q315,224 360,216 L360,224 Q315,232 270,224 Q225,216 180,224 Q135,232 90,224 Q45,216 0,224 Z" fill="#4ade80" opacity="0.72" />
+        <rect x="0" y="338" width="360" height="42" fill="url(#ground-grad)" />
+        <path d="M0,338 Q45,330 90,338 Q135,346 180,338 Q225,330 270,338 Q315,346 360,338 L360,346 Q315,354 270,346 Q225,338 180,346 Q135,354 90,346 Q45,338 0,346 Z" fill="#4ade80" opacity="0.7" />
 
         {/* Ground flowers */}
-        <Flower x={28} y={228} color="#fda4af" />
-        <Flower x={58} y={234} color="#fde68a" />
-        <Flower x={100} y={230} color="#c4b5fd" />
-        <Flower x={270} y={232} color="#a5f3fc" />
-        <Flower x={302} y={228} color="#fda4af" />
-        <Flower x={334} y={234} color="#fde68a" />
+        <Flower x={26} y={348} color="#fda4af" />
+        <Flower x={56} y={354} color="#fde68a" />
+        <Flower x={98} y={350} color="#c4b5fd" />
+        <Flower x={268} y={352} color="#a5f3fc" />
+        <Flower x={300} y={348} color="#fda4af" />
+        <Flower x={334} y={354} color="#fde68a" />
 
-        {/* Main tree */}
-        <MainTree
-          stage={stage} readBooks={readBooks} cx={180} groundY={216}
-          onSignTap={onSignTap} onShelfTap={onShelfTap}
+        {/* Trunk shadow */}
+        <ellipse cx={cx + 12} cy={groundY + 6} rx={baseW * 2.6} ry={10} fill="rgba(0,0,0,0.18)" />
+
+        {/* Trunk */}
+        <path d={trunkPath} fill="url(#trunk-grad)" stroke="#3d1f0a" strokeWidth="1.5" />
+        {/* Trunk highlight */}
+        <path
+          d={`M ${cx - baseW * 0.55} ${groundY - 18} C ${cx - baseW * 0.5} ${groundY - trunkH * 0.4} ${cx - topW * 0.8} ${trunkTop + 55} ${cx - topW * 0.6} ${trunkTop + 8}`}
+          fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth={Math.max(2, baseW * 0.18)} strokeLinecap="round"
         />
 
-        {/* Stage badge */}
-        <rect x={128} y={258} width={104} height={26} rx="13" fill="rgba(0,0,0,0.22)" />
-        <rect x={126} y={256} width={104} height={26} rx="13" fill="white" />
-        <text x={178} y={272} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#15803d">
-          {stageLabel}
-        </text>
-        <text x={178} y={284} textAnchor="middle" fontSize="10" fill="#6b7280">
-          {count}冊読了
+        {/* Genre branches — rendered below leaves */}
+        {BRANCH_SLOTS.map((slot, i) => {
+          const genreKey = GENRE_KEYS[slotGenreMap[i]];
+          const books = booksByGenre[genreKey] || [];
+          return (
+            <GenreBranch
+              key={genreKey}
+              slot={slot}
+              books={books}
+              cx={cx}
+              trunkTop={trunkTop}
+              trunkH={trunkH}
+              groundY={groundY}
+              genreKey={genreKey}
+            />
+          );
+        })}
+
+        {/* Tree sign (tappable) */}
+        <g onClick={e => { e.stopPropagation(); onSignTap?.(); }} style={{ cursor: 'pointer' }}>
+          <line x1={cx - 12} y1={signY - 2} x2={cx - 12} y2={signY + 14} stroke="#92400e" strokeWidth="1.8" />
+          <line x1={cx + 12} y1={signY - 2} x2={cx + 12} y2={signY + 14} stroke="#92400e" strokeWidth="1.8" />
+          <rect x={cx - 34} y={signY + 14} width={68} height={26} rx={4} fill="#b45309" stroke="#78350f" strokeWidth="1.5" />
+          <rect x={cx - 32} y={signY + 16} width={64} height={22} rx={3} fill="#fef3c7" opacity={0.88} />
+          <text x={cx} y={signY + 30} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#78350f">🌲 わたしの森</text>
+        </g>
+
+        {/* Bookshelf at base (tappable) */}
+        {readBooks.length > 0 && (
+          <g onClick={e => { e.stopPropagation(); onShelfTap?.(); }} style={{ cursor: 'pointer' }}>
+            <rect x={cx - 52} y={shelfY} width={104} height={5} rx={2.5} fill="#b45309" stroke="#92400e" strokeWidth="1" />
+            <rect x={cx - 50} y={shelfY + 5} width={4} height={14} rx={2} fill="#92400e" />
+            <rect x={cx + 46} y={shelfY + 5} width={4} height={14} rx={2} fill="#92400e" />
+            {readBooks.slice(0, 16).map((b, i) => {
+              const bx = cx - 48 + i * 6;
+              const bh = 13 + (i % 3) * 5;
+              const col = GENRES[b.genre]?.color || '#6b7280';
+              return (
+                <g key={b.id}>
+                  <rect x={bx} y={shelfY - bh} width={5.5} height={bh} rx={0.8} fill={col} opacity={0.9} />
+                  <rect x={bx + 0.8} y={shelfY - bh + 1} width={1.5} height={bh - 2} rx={0.5} fill="rgba(255,255,255,0.3)" />
+                </g>
+              );
+            })}
+            <text x={cx} y={shelfY + 26} textAnchor="middle" fontSize="8" fontWeight="bold" fill="#92400e">📚 本棚を開く</text>
+          </g>
+        )}
+
+        {/* Book count label */}
+        <rect x={136} y={358} width={88} height={20} rx="10" fill="rgba(0,0,0,0.18)" />
+        <rect x={134} y={356} width={88} height={20} rx="10" fill="white" />
+        <text x={178} y={369} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#15803d">
+          {count === 0 ? '📖 本を登録しよう' : `🌿 ${count}冊読了`}
         </text>
       </svg>
     </div>

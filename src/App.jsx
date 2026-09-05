@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useBooks } from './hooks/useBooks';
 import ForestScene from './components/ForestScene';
-import UndergroundScene from './components/UndergroundScene';
 import AddBookModal from './components/AddBookModal';
 import TimerModal from './components/TimerModal';
 import UnreadCorner from './components/UnreadCorner';
@@ -94,7 +93,7 @@ function GenreLegend({ readBooks }) {
 }
 
 export default function App() {
-  const { books, readBooks, unreadBooks, addBook, updateBook, deleteBook, waterBook } = useBooks();
+  const { books, readBooks, unreadBooks, addBook, updateBook, deleteBook } = useBooks();
   const [modal, setModal] = useState(null);
   const [sparkle, setSparkle] = useState(false);
   const prevCountRef = useRef(readBooks.length);
@@ -151,29 +150,13 @@ export default function App() {
       <StatsBar readBooks={readBooks} onClick={() => setModal('stats')} />
       <GenreLegend readBooks={readBooks} />
 
-      {/* Main scroll area */}
-      <div className="flex-1 overflow-y-auto flex flex-col">
-        <div className="flex flex-col" style={{ minHeight: 300 }}>
-          <ForestScene
-            readBooks={readBooks}
-            onTreeTap={() => setModal('shelf')}
-            onSignTap={() => setModal('sign')}
-            onShelfTap={() => setModal('shelf')}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-1 text-xs font-semibold"
-          style={{ background: '#86efac', color: '#15803d' }}>
-          <span>🌿 地表</span>
-          <div className="flex-1 h-px bg-green-400 opacity-40" />
-          <span>根 {readBooks.length}本</span>
-        </div>
-
-        <UndergroundScene
+      {/* Main content — forest scene fills all available space */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <ForestScene
           readBooks={readBooks}
-          onWater={waterBook}
-          onUpdate={updateBook}
-          onDelete={deleteBook}
+          onTreeTap={() => setModal('shelf')}
+          onSignTap={() => setModal('sign')}
+          onShelfTap={() => setModal('shelf')}
         />
       </div>
 
