@@ -13,7 +13,7 @@ import { GENRES } from './data/genres';
 
 const NAV_ITEMS = [
   { id: 'forest',   emoji: '🌳', label: '森' },
-  { id: 'timer',    emoji: '⏱', label: 'タイマー' },
+  { id: 'timer',    emoji: '⏱', label: '読書タイム' },
   { id: 'unread',   emoji: '📦', label: '積読' },
   { id: 'calendar', emoji: '📅', label: 'カレンダー' },
   { id: 'shelf',    emoji: '🪵', label: '本棚' },
@@ -186,7 +186,7 @@ export default function App() {
       >
         <div>
           <h1 className="text-2xl font-black text-gray-800">🌲 ちし樹森森</h1>
-          <p className="text-xs text-gray-500 font-medium">Chishiki Forest</p>
+          <p className="text-xs text-gray-500 font-medium">Knowledge Grove</p>
         </div>
         <button
           onClick={() => setModal('add')}
