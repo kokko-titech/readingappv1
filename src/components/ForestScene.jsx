@@ -1,6 +1,11 @@
 import { useMemo } from 'react';
 import { GENRES } from '../data/genres';
 
+function seededRand(seed) {
+  let s = Math.abs(seed % 2147483647) || 1;
+  return () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
+}
+
 function Cloud({ x, y, s = 30 }) {
   return (
     <g>
@@ -34,20 +39,19 @@ function Flower({ x, y, color }) {
   return (
     <g>
       {[0, 72, 144, 216, 288].map((a, i) => (
-        <circle
-          key={i}
+        <circle key={i}
           cx={x + Math.cos((a * Math.PI) / 180) * 5}
           cy={y + Math.sin((a * Math.PI) / 180) * 5}
-          r={3.5}
-          fill={color}
-        />
+          r={3.5} fill={color} />
       ))}
       <circle cx={x} cy={y} r={2.8} fill="#fef9c3" />
     </g>
   );
 }
 
-function MainTree({ stage, readBooks, cx, groundY }) {
+const LEAF_COLORS = ['#4ade80', '#22c55e', '#16a34a', '#86efac', '#bbf7d0', '#34d399', '#6ee7b7'];
+
+function MainTree({ stage, readBooks, cx, groundY, onSignTap, onShelfTap }) {
   const sizes = [
     { trunkH: 0, trunkW: 0, cr: 0 },
     { trunkH: 68, trunkW: 17, cr: 54 },
@@ -59,8 +63,25 @@ function MainTree({ stage, readBooks, cx, groundY }) {
   const trunkTop = groundY - trunkH;
   const canopyY = trunkTop + 10;
 
-  const favoriteCount = useMemo(() => readBooks.filter((b) => b.isFavorite).length, [readBooks]);
-  const reviewCount = useMemo(() => readBooks.filter((b) => b.review?.length > 0).length, [readBooks]);
+  const favoriteCount = useMemo(() => readBooks.filter(b => b.isFavorite).length, [readBooks]);
+  const reviewCount = useMemo(() => readBooks.filter(b => b.review?.length > 0).length, [readBooks]);
+
+  const leaves = useMemo(() => {
+    if (stage === 0 || cr === 0) return [];
+    return Array.from({ length: Math.min(readBooks.length, 42) }, (_, i) => {
+      const r = seededRand(i * 1337 + 7);
+      const angle = r() * Math.PI * 2;
+      const dist = cr * (0.1 + r() * 0.85);
+      return {
+        x: cx + Math.cos(angle) * dist,
+        y: canopyY + Math.sin(angle) * dist * 0.78,
+        rot: r() * 360,
+        rx: 2.8 + r() * 4,
+        ry: 5 + r() * 5.5,
+        color: LEAF_COLORS[Math.floor(r() * LEAF_COLORS.length)],
+      };
+    });
+  }, [readBooks.length, stage, cr, cx, canopyY]);
 
   if (stage === 0) {
     return (
@@ -76,6 +97,9 @@ function MainTree({ stage, readBooks, cx, groundY }) {
       </g>
     );
   }
+
+  const signY = trunkTop + trunkH * 0.4;
+  const shelfY = groundY - 4;
 
   return (
     <g>
@@ -96,6 +120,12 @@ function MainTree({ stage, readBooks, cx, groundY }) {
 
       <ellipse cx={cx} cy={canopyY} rx={cr} ry={cr * 0.9}
         fill="url(#canopy-grad)" stroke="#059669" strokeWidth="2.5" />
+
+      {leaves.map((leaf, i) => (
+        <ellipse key={i} cx={leaf.x} cy={leaf.y} rx={leaf.rx} ry={leaf.ry}
+          fill={leaf.color} opacity={0.82}
+          transform={`rotate(${leaf.rot}, ${leaf.x}, ${leaf.y})`} />
+      ))}
 
       <ellipse cx={cx - cr * 0.3} cy={canopyY - cr * 0.36} rx={cr * 0.28} ry={cr * 0.2}
         fill="rgba(255,255,255,0.34)" />
@@ -125,11 +155,39 @@ function MainTree({ stage, readBooks, cx, groundY }) {
           </g>
         );
       })}
+
+      <g onClick={e => { e.stopPropagation(); onSignTap?.(); }} style={{ cursor: 'pointer' }}>
+        <line x1={cx - 10} y1={signY} x2={cx - 10} y2={signY + 12} stroke="#92400e" strokeWidth="1.5" />
+        <line x1={cx + 10} y1={signY} x2={cx + 10} y2={signY + 12} stroke="#92400e" strokeWidth="1.5" />
+        <rect x={cx - 30} y={signY + 12} width={60} height={24} rx={4} fill="#b45309" stroke="#78350f" strokeWidth="1.5" />
+        <rect x={cx - 28} y={signY + 14} width={56} height={20} rx={3} fill="#fef3c7" opacity={0.85} />
+        <text x={cx} y={signY + 27} textAnchor="middle" fontSize="8.5" fontWeight="bold" fill="#78350f">🌲 わたしの森</text>
+      </g>
+
+      {readBooks.length > 0 && (
+        <g onClick={e => { e.stopPropagation(); onShelfTap?.(); }} style={{ cursor: 'pointer' }}>
+          <rect x={cx - 48} y={shelfY} width={96} height={5} rx={2.5} fill="#b45309" stroke="#92400e" strokeWidth="1" />
+          <rect x={cx - 46} y={shelfY + 5} width={4} height={14} rx={2} fill="#92400e" />
+          <rect x={cx + 42} y={shelfY + 5} width={4} height={14} rx={2} fill="#92400e" />
+          {readBooks.slice(0, 15).map((b, i) => {
+            const bx = cx - 44 + i * 5.8;
+            const bh = 13 + (i % 3) * 5;
+            const col = GENRES[b.genre]?.color || '#6b7280';
+            return (
+              <g key={b.id}>
+                <rect x={bx} y={shelfY - bh} width={5} height={bh} rx={0.8} fill={col} opacity={0.9} />
+                <rect x={bx + 0.8} y={shelfY - bh + 1} width={1.5} height={bh - 2} rx={0.5} fill="rgba(255,255,255,0.3)" />
+              </g>
+            );
+          })}
+          <text x={cx} y={shelfY + 24} textAnchor="middle" fontSize="8" fontWeight="bold" fill="#92400e">📚 本棚を開く</text>
+        </g>
+      )}
     </g>
   );
 }
 
-export default function ForestScene({ readBooks, onTreeTap }) {
+export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTap }) {
   const count = readBooks.length;
   const stage = count >= 50 ? 4 : count >= 20 ? 3 : count >= 5 ? 2 : count >= 1 ? 1 : 0;
   const stageLabel = ['🌱 芽生え', '🌿 小木', '🌳 中木', '🌲 大樹', '🌲 大樹'][stage];
@@ -170,26 +228,20 @@ export default function ForestScene({ readBooks, onTreeTap }) {
         </defs>
 
         <rect x="0" y="0" width="360" height="225" fill="url(#sky-grad)" />
-
         <circle cx="320" cy="50" r="36" fill="#fef08a" opacity="0.88" />
         <circle cx="320" cy="50" r="29" fill="#fde047" />
         <ellipse cx="310" cy="42" rx="10" ry="7" fill="rgba(255,255,255,0.45)" />
-
         <Cloud x={78} y={62} s={32} />
         <Cloud x={255} y={40} s={24} />
         <Cloud x={172} y={80} s={18} />
-
         <ellipse cx="58" cy="228" rx="115" ry="40" fill="#86efac" opacity="0.52" />
         <ellipse cx="312" cy="232" rx="98" ry="35" fill="#86efac" opacity="0.44" />
-
         <BackTree x={40} y={218} h={88} />
         <BackTree x={320} y={218} h={74} />
         <BackTree x={18} y={218} h={56} />
         <BackTree x={342} y={218} h={52} />
-
         <rect x="0" y="216" width="360" height="74" fill="url(#ground-grad)" />
         <path d="M0,216 Q45,208 90,216 Q135,224 180,216 Q225,208 270,216 Q315,224 360,216 L360,224 Q315,232 270,224 Q225,216 180,224 Q135,232 90,224 Q45,216 0,224 Z" fill="#4ade80" opacity="0.72" />
-
         <Flower x={28} y={228} color="#fda4af" />
         <Flower x={58} y={234} color="#fde68a" />
         <Flower x={100} y={230} color="#c4b5fd" />
@@ -197,14 +249,17 @@ export default function ForestScene({ readBooks, onTreeTap }) {
         <Flower x={302} y={228} color="#fda4af" />
         <Flower x={334} y={234} color="#fde68a" />
 
-        <MainTree stage={stage} readBooks={readBooks} cx={180} groundY={216} />
+        <MainTree
+          stage={stage} readBooks={readBooks} cx={180} groundY={216}
+          onSignTap={onSignTap} onShelfTap={onShelfTap}
+        />
 
-        <rect x={128} y={254} width={104} height={28} rx="14" fill="rgba(0,0,0,0.22)" />
-        <rect x={126} y={252} width={104} height={28} rx="14" fill="white" />
-        <text x={178} y={270} textAnchor="middle" fontSize="13" fontWeight="bold" fill="#15803d">
+        <rect x={128} y={258} width={104} height={26} rx="13" fill="rgba(0,0,0,0.22)" />
+        <rect x={126} y={256} width={104} height={26} rx="13" fill="white" />
+        <text x={178} y={272} textAnchor="middle" fontSize="12" fontWeight="bold" fill="#15803d">
           {stageLabel}
         </text>
-        <text x={178} y={284} textAnchor="middle" fontSize="11" fill="#6b7280">
+        <text x={178} y={284} textAnchor="middle" fontSize="10" fill="#6b7280">
           {count}冊読了
         </text>
       </svg>

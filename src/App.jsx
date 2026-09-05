@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBooks } from './hooks/useBooks';
 import ForestScene from './components/ForestScene';
 import UndergroundScene from './components/UndergroundScene';
@@ -8,6 +8,7 @@ import UnreadCorner from './components/UnreadCorner';
 import CalendarModal from './components/CalendarModal';
 import Bookshelf from './components/Bookshelf';
 import StatsModal from './components/StatsModal';
+import TreeSignModal from './components/TreeSignModal';
 import { GENRES } from './data/genres';
 
 const NAV_ITEMS = [
@@ -18,10 +19,35 @@ const NAV_ITEMS = [
   { id: 'shelf',    emoji: '🪵', label: '本棚' },
 ];
 
+const SPARKLE_EMOJIS = ['✨', '🍃', '⭐', '✨', '🌟', '💚', '✨', '🍃', '🌿', '⭐'];
+
+function SparkleOverlay() {
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50" style={{ overflow: 'hidden' }}>
+      {SPARKLE_EMOJIS.map((emoji, i) => (
+        <div
+          key={i}
+          style={{
+            position: 'absolute',
+            left: `${8 + (i * 9) % 84}%`,
+            top: `${15 + (i * 13) % 65}%`,
+            fontSize: 20 + (i % 3) * 10,
+            animation: `sparkle-float ${0.9 + i * 0.1}s ease-out forwards`,
+            animationDelay: `${i * 0.07}s`,
+            opacity: 0,
+          }}
+        >
+          {emoji}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StatsBar({ readBooks, onClick }) {
   const total = readBooks.length;
-  const favorites = readBooks.filter((b) => b.isFavorite).length;
-  const reviewed = readBooks.filter((b) => b.review && b.review.length > 0).length;
+  const favorites = readBooks.filter(b => b.isFavorite).length;
+  const reviewed = readBooks.filter(b => b.review && b.review.length > 0).length;
 
   return (
     <div
@@ -48,7 +74,7 @@ function StatsBar({ readBooks, onClick }) {
 
 function GenreLegend({ readBooks }) {
   const counts = {};
-  readBooks.forEach((b) => { counts[b.genre] = (counts[b.genre] || 0) + 1; });
+  readBooks.forEach(b => { counts[b.genre] = (counts[b.genre] || 0) + 1; });
   const active = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 4);
   if (active.length === 0) return null;
 
@@ -57,7 +83,8 @@ function GenreLegend({ readBooks }) {
       {active.map(([genre, cnt]) => {
         const g = GENRES[genre];
         return (
-          <span key={genre} className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: g.color + '33', color: g.darkColor }}>
+          <span key={genre} className="px-2 py-0.5 rounded-full text-xs font-semibold"
+            style={{ background: g.color + '33', color: g.darkColor }}>
             {g.emoji} {g.label} {cnt}
           </span>
         );
@@ -69,10 +96,21 @@ function GenreLegend({ readBooks }) {
 export default function App() {
   const { books, readBooks, unreadBooks, addBook, updateBook, deleteBook, waterBook } = useBooks();
   const [modal, setModal] = useState(null);
+  const [sparkle, setSparkle] = useState(false);
+  const prevCountRef = useRef(readBooks.length);
 
-  const markRead = (id) => updateBook(id, { isUnread: false });
+  useEffect(() => {
+    if (readBooks.length > prevCountRef.current) {
+      setSparkle(true);
+      if (navigator.vibrate) navigator.vibrate([40, 20, 40, 20, 80]);
+      setTimeout(() => setSparkle(false), 2000);
+    }
+    prevCountRef.current = readBooks.length;
+  }, [readBooks.length]);
 
-  const handleNav = (id) => {
+  const markRead = id => updateBook(id, { isUnread: false });
+
+  const handleNav = id => {
     if (id === 'forest') { setModal(null); return; }
     setModal(id);
   };
@@ -82,7 +120,8 @@ export default function App() {
       className="flex flex-col h-dvh max-w-md mx-auto relative overflow-hidden"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif' }}
     >
-      {/* Header */}
+      {sparkle && <SparkleOverlay />}
+
       <div
         className="flex items-center justify-between px-4"
         style={{
@@ -106,17 +145,21 @@ export default function App() {
         </button>
       </div>
 
-      {/* Stats — tap to open stats modal */}
       <StatsBar readBooks={readBooks} onClick={() => setModal('stats')} />
       <GenreLegend readBooks={readBooks} />
 
-      {/* Main scroll area */}
       <div className="flex-1 overflow-y-auto flex flex-col">
         <div className="flex flex-col" style={{ minHeight: 300 }}>
-          <ForestScene readBooks={readBooks} onTreeTap={() => setModal('shelf')} />
+          <ForestScene
+            readBooks={readBooks}
+            onTreeTap={() => setModal('shelf')}
+            onSignTap={() => setModal('sign')}
+            onShelfTap={() => setModal('shelf')}
+          />
         </div>
 
-        <div className="flex items-center gap-2 px-4 py-1 text-xs font-semibold" style={{ background: '#86efac', color: '#15803d' }}>
+        <div className="flex items-center gap-2 px-4 py-1 text-xs font-semibold"
+          style={{ background: '#86efac', color: '#15803d' }}>
           <span>🌿 地表</span>
           <div className="flex-1 h-px bg-green-400 opacity-40" />
           <span>根 {readBooks.length}本</span>
@@ -130,7 +173,6 @@ export default function App() {
         />
       </div>
 
-      {/* Bottom navigation */}
       <div
         className="flex items-center justify-around py-2"
         style={{
@@ -158,7 +200,6 @@ export default function App() {
         })}
       </div>
 
-      {/* Unread badge */}
       {unreadBooks.length > 0 && (
         <div
           className="absolute right-16 bottom-14 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center"
@@ -168,7 +209,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modals */}
       {modal === 'add' && <AddBookModal onAdd={addBook} onClose={() => setModal(null)} />}
       {modal === 'timer' && <TimerModal onClose={() => setModal(null)} />}
       {modal === 'unread' && <UnreadCorner unreadBooks={unreadBooks} onMarkRead={markRead} onClose={() => setModal(null)} />}
@@ -182,6 +222,7 @@ export default function App() {
         />
       )}
       {modal === 'stats' && <StatsModal readBooks={readBooks} onClose={() => setModal(null)} />}
+      {modal === 'sign' && <TreeSignModal readBooks={readBooks} onClose={() => setModal(null)} />}
     </div>
   );
 }

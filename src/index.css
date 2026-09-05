@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@keyframes sparkle-float {
+  0%   { transform: translateY(10px) scale(0) rotate(0deg); opacity: 0; }
+  25%  { opacity: 1; transform: translateY(-20px) scale(1.3) rotate(90deg); }
+  100% { transform: translateY(-80px) scale(0.4) rotate(270deg); opacity: 0; }
+}
+@keyframes leaf-pop {
+  0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+  50%  { transform: scale(1.4) rotate(10deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
 @layer base {
   * {
     -webkit-tap-highlight-color: transparent;
