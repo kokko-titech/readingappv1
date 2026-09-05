@@ -41,7 +41,7 @@ export default function TimerModal({ onClose }) {
         </div>
 
         <div className="px-5 pb-2 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-800">⏱ まるまるタイマー</h2>
+          <h2 className="text-lg font-bold text-gray-800">⏱ 読書タイマー</h2>
           <button onClick={onClose} className="p-1 text-gray-400">
             <X size={20} />
           </button>
