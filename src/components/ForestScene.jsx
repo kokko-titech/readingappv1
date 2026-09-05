@@ -14,6 +14,15 @@ function bezierPoint(t, p0, p1, p2) {
   };
 }
 
+function getTreeScale(count) {
+  if (count === 0) return 0.32;
+  if (count < 3)  return 0.44;
+  if (count < 7)  return 0.58;
+  if (count < 15) return 0.73;
+  if (count < 30) return 0.87;
+  return 1.0;
+}
+
 function Cloud({ x, y, s = 30 }) {
   return (
     <g>
@@ -53,138 +62,115 @@ function Flower({ x, y, color }) {
   );
 }
 
-// 7 branch slots — one per genre (left/right alternating, lower to higher)
-// h = fraction up the trunk (0=ground, 1=top), angle = degrees from horizontal (>90 = left, <90 = right)
 const GENRE_KEYS = Object.keys(GENRES);
 
 const BRANCH_SLOTS = [
-  { h: 0.38, angle: 148, len: 80, thick: 5.5 },   // other      — lower-left
-  { h: 0.44, angle: 35,  len: 76, thick: 5.0 },   // selfhelp   — lower-right
-  { h: 0.56, angle: 136, len: 86, thick: 4.4 },   // philosophy — mid-left
-  { h: 0.62, angle: 44,  len: 82, thick: 4.0 },   // history    — mid-right
-  { h: 0.72, angle: 128, len: 90, thick: 3.4 },   // science    — upper-mid-left
-  { h: 0.78, angle: 52,  len: 86, thick: 3.0 },   // business   — upper-mid-right
-  { h: 0.88, angle: 118, len: 78, thick: 2.4 },   // literature — top-left
+  { h: 0.38, angle: 148, len: 80, thick: 5.5 },
+  { h: 0.44, angle: 35,  len: 76, thick: 5.0 },
+  { h: 0.56, angle: 136, len: 86, thick: 4.4 },
+  { h: 0.62, angle: 44,  len: 82, thick: 4.0 },
+  { h: 0.72, angle: 128, len: 90, thick: 3.4 },
+  { h: 0.78, angle: 52,  len: 86, thick: 3.0 },
+  { h: 0.88, angle: 118, len: 78, thick: 2.4 },
 ];
 
-function GenreBranch({ slot, books, cx, trunkTop, trunkH, groundY, genreKey }) {
+const SLOT_GENRE_MAP = [6, 5, 4, 3, 2, 1, 0];
+
+function GenreBranch({ slot, books, cx, trunkTop, trunkH, scale, onBookTap }) {
+  const genreKey = slot.genreKey;
   const genre = GENRES[genreKey];
   const leafColor = genre.color;
   const darkLeafColor = genre.darkColor;
 
-  // Branch root on trunk
+  const len = slot.len * scale;
+  const thick = Math.max(0.7, slot.thick * scale);
+
   const rootY = trunkTop + trunkH * (1 - slot.h);
   const rootX = cx;
 
-  // Branch tip using angle
   const rad = (slot.angle * Math.PI) / 180;
-  const tipX = rootX + Math.cos(rad) * slot.len;
-  const tipY = rootY - Math.sin(rad) * slot.len * 0.72;
+  const tipX = rootX + Math.cos(rad) * len;
+  const tipY = rootY - Math.sin(rad) * len * 0.72;
 
-  // Control point for quadratic bezier (curves upward)
-  const ctrlX = rootX + Math.cos(rad) * slot.len * 0.42;
-  const ctrlY = rootY - Math.sin(rad) * slot.len * 0.18 - 18;
+  const ctrlX = rootX + Math.cos(rad) * len * 0.42;
+  const ctrlY = rootY - Math.sin(rad) * len * 0.18 - 18 * scale;
 
-  // Sub-branches at t=0.55 and t=0.78 along main branch
-  const sub1t = 0.55;
-  const sub2t = 0.78;
-  const p1 = bezierPoint(sub1t, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
-  const p2 = bezierPoint(sub2t, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
+  const p1 = bezierPoint(0.55, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
+  const p2 = bezierPoint(0.78, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
 
-  // Sub-branch directions (fork left and right)
   const isLeft = slot.angle > 90;
   const fork1Angle = rad + (isLeft ? 0.4 : -0.4);
   const fork2Angle = rad + (isLeft ? -0.35 : 0.35);
-  const subLen1 = slot.len * 0.44;
-  const subLen2 = slot.len * 0.38;
+  const subLen1 = len * 0.44;
+  const subLen2 = len * 0.38;
 
   const s1tip = { x: p1.x + Math.cos(fork1Angle) * subLen1, y: p1.y - Math.sin(fork1Angle) * subLen1 * 0.7 };
   const s2tip = { x: p2.x + Math.cos(fork2Angle) * subLen2, y: p2.y - Math.sin(fork2Angle) * subLen2 * 0.7 };
 
-  // Leaves: up to 5 per book (max 30 per branch), seeded positions along branches
-  const bookCount = books.length;
-  const leafCount = Math.min(bookCount * 5, 30);
-
   const leaves = useMemo(() => {
-    if (leafCount === 0) return [];
-    const r = seededRand(GENRE_KEYS.indexOf(genreKey) * 9999 + leafCount * 37);
-    const result = [];
-    for (let i = 0; i < leafCount; i++) {
-      const branch = r() < 0.5 ? 'main' : r() < 0.5 ? 'sub1' : 'sub2';
-      const t = 0.35 + r() * 0.62;
+    return books.map((book, i) => {
+      const r = seededRand(GENRE_KEYS.indexOf(genreKey) * 9999 + i * 137 + 7);
+      const which = r();
+      const t = 0.3 + r() * 0.66;
       let bp;
-      if (branch === 'main') {
+      if (which < 0.5) {
         bp = bezierPoint(t, { x: rootX, y: rootY }, { x: ctrlX, y: ctrlY }, { x: tipX, y: tipY });
-      } else if (branch === 'sub1') {
+      } else if (which < 0.75) {
         bp = { x: p1.x + Math.cos(fork1Angle) * subLen1 * t, y: p1.y - Math.sin(fork1Angle) * subLen1 * t * 0.7 };
       } else {
         bp = { x: p2.x + Math.cos(fork2Angle) * subLen2 * t, y: p2.y - Math.sin(fork2Angle) * subLen2 * t * 0.7 };
       }
-      const spread = 5 + r() * 9;
-      result.push({
+      const spread = (4 + r() * 7) * scale;
+      return {
         x: bp.x + (r() - 0.5) * spread,
-        y: bp.y + (r() - 0.5) * spread * 0.6 - 4,
+        y: bp.y + (r() - 0.5) * spread * 0.6 - 3 * scale,
         rot: r() * 360,
-        rx: 3 + r() * 3.5,
-        ry: 5 + r() * 5,
+        rx: (3 + r() * 3) * scale,
+        ry: (4.5 + r() * 4.5) * scale,
         dark: r() < 0.35,
-      });
-    }
-    return result;
-  }, [leafCount, genreKey, rootX, rootY, ctrlX, ctrlY, tipX, tipY, p1.x, p1.y, p2.x, p2.y, fork1Angle, fork2Angle, subLen1, subLen2]);
+        book,
+      };
+    });
+  }, [books, genreKey, rootX, rootY, ctrlX, ctrlY, tipX, tipY, p1.x, p1.y, p2.x, p2.y, fork1Angle, fork2Angle, subLen1, subLen2, scale]);
 
   const branchColor = '#6b3a1f';
   const branchStroke = '#3d1f0a';
+  const bookCount = books.length;
 
   return (
     <g>
-      {/* Main branch */}
-      <path
-        d={`M ${rootX} ${rootY} Q ${ctrlX} ${ctrlY} ${tipX} ${tipY}`}
-        fill="none" stroke={branchStroke} strokeWidth={slot.thick + 1} strokeLinecap="round"
-      />
-      <path
-        d={`M ${rootX} ${rootY} Q ${ctrlX} ${ctrlY} ${tipX} ${tipY}`}
-        fill="none" stroke={branchColor} strokeWidth={slot.thick} strokeLinecap="round"
-      />
+      <path d={`M ${rootX} ${rootY} Q ${ctrlX} ${ctrlY} ${tipX} ${tipY}`}
+        fill="none" stroke={branchStroke} strokeWidth={thick + 1} strokeLinecap="round" />
+      <path d={`M ${rootX} ${rootY} Q ${ctrlX} ${ctrlY} ${tipX} ${tipY}`}
+        fill="none" stroke={branchColor} strokeWidth={thick} strokeLinecap="round" />
 
-      {/* Sub-branch 1 */}
-      <path
-        d={`M ${p1.x} ${p1.y} L ${s1tip.x} ${s1tip.y}`}
-        fill="none" stroke={branchStroke} strokeWidth={slot.thick * 0.48 + 0.6} strokeLinecap="round"
-      />
-      <path
-        d={`M ${p1.x} ${p1.y} L ${s1tip.x} ${s1tip.y}`}
-        fill="none" stroke={branchColor} strokeWidth={slot.thick * 0.45} strokeLinecap="round"
-      />
+      <path d={`M ${p1.x} ${p1.y} L ${s1tip.x} ${s1tip.y}`}
+        fill="none" stroke={branchStroke} strokeWidth={thick * 0.48 + 0.5} strokeLinecap="round" />
+      <path d={`M ${p1.x} ${p1.y} L ${s1tip.x} ${s1tip.y}`}
+        fill="none" stroke={branchColor} strokeWidth={thick * 0.45} strokeLinecap="round" />
 
-      {/* Sub-branch 2 */}
-      <path
-        d={`M ${p2.x} ${p2.y} L ${s2tip.x} ${s2tip.y}`}
-        fill="none" stroke={branchStroke} strokeWidth={slot.thick * 0.4 + 0.5} strokeLinecap="round"
-      />
-      <path
-        d={`M ${p2.x} ${p2.y} L ${s2tip.x} ${s2tip.y}`}
-        fill="none" stroke={branchColor} strokeWidth={slot.thick * 0.38} strokeLinecap="round"
-      />
+      <path d={`M ${p2.x} ${p2.y} L ${s2tip.x} ${s2tip.y}`}
+        fill="none" stroke={branchStroke} strokeWidth={thick * 0.4 + 0.4} strokeLinecap="round" />
+      <path d={`M ${p2.x} ${p2.y} L ${s2tip.x} ${s2tip.y}`}
+        fill="none" stroke={branchColor} strokeWidth={thick * 0.38} strokeLinecap="round" />
 
-      {/* Leaves */}
       {leaves.map((leaf, i) => (
         <ellipse key={i}
           cx={leaf.x} cy={leaf.y}
-          rx={leaf.rx} ry={leaf.ry}
+          rx={Math.max(2, leaf.rx)} ry={Math.max(3, leaf.ry)}
           fill={leaf.dark ? darkLeafColor : leafColor}
           opacity={0.88}
           transform={`rotate(${leaf.rot}, ${leaf.x}, ${leaf.y})`}
+          style={{ cursor: 'pointer' }}
+          onClick={e => { e.stopPropagation(); onBookTap?.(leaf.book); }}
         />
       ))}
 
-      {/* Genre label at branch tip (small, only if has books) */}
-      {bookCount > 0 && (
+      {bookCount > 0 && scale >= 0.55 && (
         <text
           x={tipX + (isLeft ? -8 : 8)} y={tipY - 4}
           textAnchor={isLeft ? 'end' : 'start'}
-          fontSize="7.5" fontWeight="bold" fill={darkLeafColor}
+          fontSize={Math.max(6, 7.5 * scale)} fontWeight="bold" fill={darkLeafColor}
           style={{ pointerEvents: 'none', userSelect: 'none' }}
         >
           {genre.emoji} {bookCount}
@@ -194,10 +180,10 @@ function GenreBranch({ slot, books, cx, trunkTop, trunkH, groundY, genreKey }) {
   );
 }
 
-export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTap }) {
+export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTap, onBookTap }) {
   const count = readBooks.length;
+  const scale = getTreeScale(count);
 
-  // Group books by genre
   const booksByGenre = useMemo(() => {
     const groups = {};
     GENRE_KEYS.forEach(k => { groups[k] = []; });
@@ -210,25 +196,21 @@ export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTa
 
   const cx = 180;
   const groundY = 340;
-  const trunkH = 230;
+  const trunkH = Math.round(230 * scale);
   const trunkTop = groundY - trunkH;
-  const baseW = 28;
-  const topW = 8;
+  const baseW = Math.max(6, Math.round(28 * scale));
+  const topW = Math.max(3, Math.round(8 * scale));
 
-  // Tapered trunk as polygon
   const trunkPath = [
     `M ${cx - baseW} ${groundY}`,
-    `C ${cx - baseW} ${groundY - trunkH * 0.3} ${cx - topW * 1.1} ${trunkTop + 40} ${cx - topW} ${trunkTop}`,
+    `C ${cx - baseW} ${groundY - trunkH * 0.3} ${cx - topW * 1.1} ${trunkTop + Math.max(8, 40 * scale)} ${cx - topW} ${trunkTop}`,
     `L ${cx + topW} ${trunkTop}`,
-    `C ${cx + topW * 1.1} ${trunkTop + 40} ${cx + baseW} ${groundY - trunkH * 0.3} ${cx + baseW} ${groundY}`,
+    `C ${cx + topW * 1.1} ${trunkTop + Math.max(8, 40 * scale)} ${cx + baseW} ${groundY - trunkH * 0.3} ${cx + baseW} ${groundY}`,
     'Z',
   ].join(' ');
 
   const signY = trunkTop + trunkH * 0.45;
   const shelfY = groundY - 3;
-
-  // Map slot index → genre key (literature at top slot, other at bottom slot)
-  const slotGenreMap = [6, 5, 4, 3, 2, 1, 0];
 
   return (
     <div
@@ -259,34 +241,21 @@ export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTa
           </linearGradient>
         </defs>
 
-        {/* Sky */}
         <rect x="0" y="0" width="360" height="345" fill="url(#sky-grad)" />
-
-        {/* Sun */}
         <circle cx="316" cy="52" r="34" fill="#fef08a" opacity="0.88" />
         <circle cx="316" cy="52" r="27" fill="#fde047" />
         <ellipse cx="306" cy="44" rx="9" ry="6" fill="rgba(255,255,255,0.45)" />
-
-        {/* Clouds */}
         <Cloud x={72} y={66} s={30} />
         <Cloud x={252} y={44} s={22} />
         <Cloud x={168} y={88} s={17} />
-
-        {/* Background hills */}
         <ellipse cx="54" cy="344" rx="118" ry="38" fill="#86efac" opacity="0.5" />
         <ellipse cx="310" cy="348" rx="100" ry="34" fill="#86efac" opacity="0.42" />
-
-        {/* Background trees */}
         <BackTree x={38} y={340} h={90} />
         <BackTree x={322} y={340} h={76} />
         <BackTree x={16} y={340} h={58} />
         <BackTree x={344} y={340} h={54} />
-
-        {/* Ground */}
         <rect x="0" y="338" width="360" height="42" fill="url(#ground-grad)" />
         <path d="M0,338 Q45,330 90,338 Q135,346 180,338 Q225,330 270,338 Q315,346 360,338 L360,346 Q315,354 270,346 Q225,338 180,346 Q135,354 90,346 Q45,338 0,346 Z" fill="#4ade80" opacity="0.7" />
-
-        {/* Ground flowers */}
         <Flower x={26} y={348} color="#fda4af" />
         <Flower x={56} y={354} color="#fde68a" />
         <Flower x={98} y={350} color="#c4b5fd" />
@@ -294,36 +263,32 @@ export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTa
         <Flower x={300} y={348} color="#fda4af" />
         <Flower x={334} y={354} color="#fde68a" />
 
-        {/* Trunk shadow */}
         <ellipse cx={cx + 12} cy={groundY + 6} rx={baseW * 2.6} ry={10} fill="rgba(0,0,0,0.18)" />
-
-        {/* Trunk */}
         <path d={trunkPath} fill="url(#trunk-grad)" stroke="#3d1f0a" strokeWidth="1.5" />
-        {/* Trunk highlight */}
-        <path
-          d={`M ${cx - baseW * 0.55} ${groundY - 18} C ${cx - baseW * 0.5} ${groundY - trunkH * 0.4} ${cx - topW * 0.8} ${trunkTop + 55} ${cx - topW * 0.6} ${trunkTop + 8}`}
-          fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth={Math.max(2, baseW * 0.18)} strokeLinecap="round"
-        />
+        {trunkH > 40 && (
+          <path
+            d={`M ${cx - baseW * 0.55} ${groundY - 18} C ${cx - baseW * 0.5} ${groundY - trunkH * 0.4} ${cx - topW * 0.8} ${trunkTop + 30} ${cx - topW * 0.6} ${trunkTop + 6}`}
+            fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth={Math.max(1.5, baseW * 0.18)} strokeLinecap="round"
+          />
+        )}
 
-        {/* Genre branches */}
         {BRANCH_SLOTS.map((slot, i) => {
-          const genreKey = GENRE_KEYS[slotGenreMap[i]];
+          const genreKey = GENRE_KEYS[SLOT_GENRE_MAP[i]];
           const books = booksByGenre[genreKey] || [];
           return (
             <GenreBranch
               key={genreKey}
-              slot={slot}
+              slot={{ ...slot, genreKey }}
               books={books}
               cx={cx}
               trunkTop={trunkTop}
               trunkH={trunkH}
-              groundY={groundY}
-              genreKey={genreKey}
+              scale={scale}
+              onBookTap={onBookTap}
             />
           );
         })}
 
-        {/* Tree sign (tappable) */}
         <g onClick={e => { e.stopPropagation(); onSignTap?.(); }} style={{ cursor: 'pointer' }}>
           <line x1={cx - 12} y1={signY - 2} x2={cx - 12} y2={signY + 14} stroke="#92400e" strokeWidth="1.8" />
           <line x1={cx + 12} y1={signY - 2} x2={cx + 12} y2={signY + 14} stroke="#92400e" strokeWidth="1.8" />
@@ -332,7 +297,6 @@ export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTa
           <text x={cx} y={signY + 30} textAnchor="middle" fontSize="9" fontWeight="bold" fill="#78350f">🌲 わたしの森</text>
         </g>
 
-        {/* Bookshelf at base (tappable) */}
         {readBooks.length > 0 && (
           <g onClick={e => { e.stopPropagation(); onShelfTap?.(); }} style={{ cursor: 'pointer' }}>
             <rect x={cx - 52} y={shelfY} width={104} height={5} rx={2.5} fill="#b45309" stroke="#92400e" strokeWidth="1" />
@@ -353,7 +317,6 @@ export default function ForestScene({ readBooks, onTreeTap, onSignTap, onShelfTa
           </g>
         )}
 
-        {/* Book count label */}
         <rect x={136} y={358} width={88} height={20} rx="10" fill="rgba(0,0,0,0.18)" />
         <rect x={134} y={356} width={88} height={20} rx="10" fill="white" />
         <text x={178} y={369} textAnchor="middle" fontSize="10" fontWeight="bold" fill="#15803d">
