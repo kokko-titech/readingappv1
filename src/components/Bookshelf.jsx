@@ -85,12 +85,12 @@ function sortBooks(books, sortBy) {
   return [...books].sort((a, b) => {
     if (sortBy === 'title')  return (a.title || '').localeCompare(b.title || '', 'ja');
     if (sortBy === 'author') return (a.author || '').localeCompare(b.author || '', 'ja');
-    return (b.id || 0) - (a.id || 0);
+    return (b.id || 0) - (a.id || 0); // date: newest first
   });
 }
 
-export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, onDelete }) {
-  const [tab, setTab] = useState('read');
+export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, onDelete, initialTab = 'read' }) {
+  const [tab, setTab] = useState(initialTab);
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
@@ -123,6 +123,7 @@ export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, o
         style={{ maxHeight: '92vh', display: 'flex', flexDirection: 'column', paddingBottom: 'env(safe-area-inset-bottom)' }}
         onClick={e => e.stopPropagation()}
       >
+        {/* Handle + header */}
         <div className="flex-shrink-0">
           <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 rounded-full bg-gray-200" /></div>
           <div className="px-5 pb-2 flex items-center justify-between">
@@ -130,6 +131,7 @@ export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, o
             <button onClick={onClose} className="p-1 text-gray-400"><X size={20} /></button>
           </div>
 
+          {/* Tabs */}
           <div className="flex mx-5 mb-3 rounded-xl overflow-hidden border border-gray-200">
             <button
               onClick={() => setTab('read')}
@@ -147,6 +149,7 @@ export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, o
             </button>
           </div>
 
+          {/* Search */}
           <div className="px-5 pb-2">
             <input
               className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-400"
@@ -156,6 +159,7 @@ export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, o
             />
           </div>
 
+          {/* Sort */}
           <div className="flex gap-2 px-5 pb-3">
             <span className="text-xs text-gray-400 self-center">並び替え:</span>
             {SORT_OPTIONS.map(o => (
@@ -175,6 +179,7 @@ export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, o
           </div>
         </div>
 
+        {/* Scrollable grid */}
         <div className="flex-1 overflow-y-auto px-4 pb-6">
           {tab === 'read' && (
             <>

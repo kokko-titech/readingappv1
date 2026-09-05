@@ -3,7 +3,6 @@ import { useBooks } from './hooks/useBooks';
 import ForestScene from './components/ForestScene';
 import AddBookModal from './components/AddBookModal';
 import TimerModal from './components/TimerModal';
-import UnreadCorner from './components/UnreadCorner';
 import CalendarModal from './components/CalendarModal';
 import Bookshelf from './components/Bookshelf';
 import StatsModal from './components/StatsModal';
@@ -174,6 +173,7 @@ export default function App() {
     >
       {sparkle && <SparkleOverlay />}
 
+      {/* Header */}
       <div
         className="flex items-center justify-between px-4"
         style={{
@@ -200,6 +200,7 @@ export default function App() {
       <StatsBar readBooks={readBooks} onClick={() => setModal('stats')} />
       <GenreLegend readBooks={readBooks} />
 
+      {/* Forest scene */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <ForestScene
           readBooks={readBooks}
@@ -210,6 +211,7 @@ export default function App() {
         />
       </div>
 
+      {/* Bottom navigation */}
       <div
         className="flex items-center justify-around py-2"
         style={{
@@ -237,6 +239,7 @@ export default function App() {
         })}
       </div>
 
+      {/* Unread badge */}
       {unreadBooks.length > 0 && (
         <div
           className="absolute right-16 bottom-14 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center"
@@ -246,9 +249,19 @@ export default function App() {
         </div>
       )}
 
+      {/* Modals */}
       {modal === 'add' && <AddBookModal onAdd={addBook} onClose={() => setModal(null)} />}
       {modal === 'timer' && <TimerModal onClose={() => setModal(null)} />}
-      {modal === 'unread' && <UnreadCorner unreadBooks={unreadBooks} onMarkRead={markRead} onClose={() => setModal(null)} />}
+      {modal === 'unread' && (
+        <Bookshelf
+          readBooks={readBooks}
+          unreadBooks={unreadBooks}
+          onClose={() => setModal(null)}
+          onUpdate={updateBook}
+          onDelete={deleteBook}
+          initialTab="unread"
+        />
+      )}
       {modal === 'calendar' && <CalendarModal readBooks={readBooks} onClose={() => setModal(null)} />}
       {modal === 'shelf' && (
         <Bookshelf
@@ -262,6 +275,7 @@ export default function App() {
       {modal === 'stats' && <StatsModal readBooks={readBooks} onClose={() => setModal(null)} />}
       {modal === 'sign' && <TreeSignModal readBooks={readBooks} onClose={() => setModal(null)} />}
 
+      {/* Leaf tap → book detail */}
       {leafBook && (
         <LeafBookDetail
           book={leafBook}
