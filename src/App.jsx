@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useBooks } from './hooks/useBooks';
 import ForestScene from './components/ForestScene';
-import UndergroundScene from './components/UndergroundScene';
 import AddBookModal from './components/AddBookModal';
 import TimerModal from './components/TimerModal';
 import UnreadCorner from './components/UnreadCorner';
@@ -94,7 +93,7 @@ function GenreLegend({ readBooks }) {
 }
 
 export default function App() {
-  const { books, readBooks, unreadBooks, addBook, updateBook, deleteBook, waterBook } = useBooks();
+  const { books, readBooks, unreadBooks, addBook, updateBook, deleteBook } = useBooks();
   const [modal, setModal] = useState(null);
   const [sparkle, setSparkle] = useState(false);
   const prevCountRef = useRef(readBooks.length);
@@ -120,8 +119,10 @@ export default function App() {
       className="flex flex-col h-dvh max-w-md mx-auto relative overflow-hidden"
       style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif' }}
     >
+      {/* Sparkle effect when new book added */}
       {sparkle && <SparkleOverlay />}
 
+      {/* Header */}
       <div
         className="flex items-center justify-between px-4"
         style={{
@@ -145,34 +146,21 @@ export default function App() {
         </button>
       </div>
 
+      {/* Stats */}
       <StatsBar readBooks={readBooks} onClick={() => setModal('stats')} />
       <GenreLegend readBooks={readBooks} />
 
-      <div className="flex-1 overflow-y-auto flex flex-col">
-        <div className="flex flex-col" style={{ minHeight: 300 }}>
-          <ForestScene
-            readBooks={readBooks}
-            onTreeTap={() => setModal('shelf')}
-            onSignTap={() => setModal('sign')}
-            onShelfTap={() => setModal('shelf')}
-          />
-        </div>
-
-        <div className="flex items-center gap-2 px-4 py-1 text-xs font-semibold"
-          style={{ background: '#86efac', color: '#15803d' }}>
-          <span>🌿 地表</span>
-          <div className="flex-1 h-px bg-green-400 opacity-40" />
-          <span>根 {readBooks.length}本</span>
-        </div>
-
-        <UndergroundScene
+      {/* Main content — forest scene fills all available space */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <ForestScene
           readBooks={readBooks}
-          onWater={waterBook}
-          onUpdate={updateBook}
-          onDelete={deleteBook}
+          onTreeTap={() => setModal('shelf')}
+          onSignTap={() => setModal('sign')}
+          onShelfTap={() => setModal('shelf')}
         />
       </div>
 
+      {/* Bottom navigation */}
       <div
         className="flex items-center justify-around py-2"
         style={{
@@ -200,6 +188,7 @@ export default function App() {
         })}
       </div>
 
+      {/* Unread badge */}
       {unreadBooks.length > 0 && (
         <div
           className="absolute right-16 bottom-14 w-5 h-5 rounded-full text-white text-xs font-bold flex items-center justify-center"
@@ -209,6 +198,7 @@ export default function App() {
         </div>
       )}
 
+      {/* Modals */}
       {modal === 'add' && <AddBookModal onAdd={addBook} onClose={() => setModal(null)} />}
       {modal === 'timer' && <TimerModal onClose={() => setModal(null)} />}
       {modal === 'unread' && <UnreadCorner unreadBooks={unreadBooks} onMarkRead={markRead} onClose={() => setModal(null)} />}
