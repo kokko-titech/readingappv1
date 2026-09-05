@@ -3,7 +3,6 @@ import { useBooks } from './hooks/useBooks';
 import ForestScene from './components/ForestScene';
 import AddBookModal from './components/AddBookModal';
 import TimerModal from './components/TimerModal';
-import UnreadCorner from './components/UnreadCorner';
 import CalendarModal from './components/CalendarModal';
 import Bookshelf from './components/Bookshelf';
 import StatsModal from './components/StatsModal';
@@ -253,7 +252,16 @@ export default function App() {
       {/* Modals */}
       {modal === 'add' && <AddBookModal onAdd={addBook} onClose={() => setModal(null)} />}
       {modal === 'timer' && <TimerModal onClose={() => setModal(null)} />}
-      {modal === 'unread' && <UnreadCorner unreadBooks={unreadBooks} onMarkRead={markRead} onClose={() => setModal(null)} />}
+      {modal === 'unread' && (
+        <Bookshelf
+          readBooks={readBooks}
+          unreadBooks={unreadBooks}
+          onClose={() => setModal(null)}
+          onUpdate={updateBook}
+          onDelete={deleteBook}
+          initialTab="unread"
+        />
+      )}
       {modal === 'calendar' && <CalendarModal readBooks={readBooks} onClose={() => setModal(null)} />}
       {modal === 'shelf' && (
         <Bookshelf

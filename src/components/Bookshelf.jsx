@@ -89,8 +89,8 @@ function sortBooks(books, sortBy) {
   });
 }
 
-export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, onDelete }) {
-  const [tab, setTab] = useState('read');
+export default function Bookshelf({ readBooks, unreadBooks, onClose, onUpdate, onDelete, initialTab = 'read' }) {
+  const [tab, setTab] = useState(initialTab);
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState('');
